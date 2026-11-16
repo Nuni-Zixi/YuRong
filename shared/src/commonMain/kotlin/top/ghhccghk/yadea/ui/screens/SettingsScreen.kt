@@ -692,7 +692,7 @@ private fun SettingsDebugSection(haptics: AppHaptics) {
             checked = DebugLog.enabled,
             onCheckedChange = {
                 haptics.toggle(it)
-                DebugLog.setEnabled(it)
+                DebugLog.setLoggingEnabled(it)
             },
             title = "日志记录",
             summary = "把网络与蓝牙诊断日志记到内存里，仅本次运行有效；完整日志另存于应用外部目录 yadea-logs/mirror-log.txt",
