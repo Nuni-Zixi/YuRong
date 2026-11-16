@@ -1,5 +1,6 @@
 package top.ghhccghk.yadea.network
 
+import top.ghhccghk.yadea.ui.DebugLog
 import top.ghhccghk.yadea.ui.logToFile
 
 /**
@@ -14,6 +15,7 @@ internal object NetworkLog {
         val line = "NET $message"
         println(line)
         runCatching { logToFile(line) }
+        DebugLog.record(line)
     }
 
     fun headers(headers: Map<String, String>): String =
