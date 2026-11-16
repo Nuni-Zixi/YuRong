@@ -637,3 +637,70 @@ private val AppPaletteStyle.label: String
         AppPaletteStyle.Fidelity -> "Fidelity"
         AppPaletteStyle.Content -> "Content"
     }
+
+
+@Composable
+private fun SettingsDebugSection(haptics: AppHaptics) {
+    var showLog by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+
+    AppBottomSheet(
+        show = showLog,
+        onDismissRequest = { showLog = false },
+        title = "调试日志",
+    ) {
+        if (DebugLog.lines.isEmpty()) {
+            AppText(
+                text = if (DebugLog.enabled) {
+                    "暂无日志，去连接车辆或执行一些操作后回来查看"
+                } else {
+                    "日志记录未开启，开启后回到这里查看"
+                },
+                style = AppDesign.typography.summary,
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().height(360.dp),
+                verticalArrangement = Arrangement.spacedBy(AppDesign.dimensions.compactSpacing),
+            ) {
+                items(DebugLog.lines) { line ->
+                    AppText(text = line, style = AppDesign.typography.summary)
+                }
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AppDesign.dimensions.controlSpacing),
+        ) {
+            AppButton(
+                onClick = { clipboardManager.setText(AnnotatedString(DebugLog.exportText())) },
+                enabled = DebugLog.lines.isNotEmpty(),
+            ) {
+                AppText(text = "复制全部")
+            }
+            AppOutlinedButton(
+                onClick = { DebugLog.clear() },
+                enabled = DebugLog.lines.isNotEmpty(),
+            ) {
+                AppText(text = "清空")
+            }
+        }
+    }
+
+    AppSection(title = "调试") {
+        AppSwitchPreference(
+            checked = DebugLog.enabled,
+            onCheckedChange = {
+                haptics.toggle(it)
+                DebugLog.setEnabled(it)
+            },
+            title = "日志记录",
+            summary = "把网络与蓝牙诊断日志记到内存里，仅本次运行有效；完整日志另存于应用外部目录 yadea-logs/mirror-log.txt",
+        )
+        AppActionPreference(
+            title = "查看日志",
+            summary = "当前已记录 ${DebugLog.lines.size} 条",
+            onClick = { showLog = true },
+        )
+    }
+}
