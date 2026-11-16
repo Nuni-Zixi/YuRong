@@ -23,7 +23,7 @@ object DebugLog {
 
     val lines = mutableStateListOf<String>()
 
-    fun setEnabled(value: Boolean) {
+    fun setLoggingEnabled(value: Boolean) {
         enabled = value
         if (value) {
             record("LOG 日志记录已开启")
