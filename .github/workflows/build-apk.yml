@@ -1,0 +1,64 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (Zulu)
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '21'
+
+      - name: Install Android SDK components (platform 37 beta + build-tools 37)
+        run: |
+          set -e
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+          "$SDKM" "build-tools;37.0.0" || true
+          if [ ! -x "$ANDROID_HOME/build-tools/37.0.0/apksigner" ]; then
+            curl -L -o /tmp/bt.zip https://dl.google.com/android/repository/build-tools_r37_linux.zip
+            unzip -q /tmp/bt.zip -d /tmp/bt
+            mkdir -p "$ANDROID_HOME/build-tools"
+            mv /tmp/bt/android-37.0 "$ANDROID_HOME/build-tools/37.0.0"
+          fi
+          "$SDKM" "platforms;android-37.2-beta3" || true
+          if [ ! -d "$ANDROID_HOME/platforms/android-37.2-beta3" ]; then
+            curl -L -o /tmp/pl.zip https://dl.google.com/android/repository/platform-37.2-beta3_r03.zip
+            unzip -q /tmp/pl.zip -d /tmp/pl
+            mkdir -p "$ANDROID_HOME/platforms"
+            mv /tmp/pl/android-37.2-beta3 "$ANDROID_HOME/platforms/android-37.2-beta3"
+          fi
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
+
+      - name: Build release APK
+        run: ./gradlew :androidApp:assembleRelease --console=plain --stacktrace
+
+      - name: Sign APK
+        run: |
+          set -e
+          BT="$ANDROID_HOME/build-tools/37.0.0"
+          UNSIGNED=$(ls androidApp/build/outputs/apk/release/*-unsigned.apk | head -1)
+          echo "Unsigned APK: $UNSIGNED"
+          PASS=$(openssl rand -hex 16)
+          keytool -genkeypair -keystore /tmp/ci.keystore -alias yurong -keyalg RSA -keysize 2048 -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=YuRong CI, O=Personal, C=CN"
+          "$BT/zipalign" -f -p 4 "$UNSIGNED" /tmp/aligned.apk
+          "$BT/apksigner" sign --ks /tmp/ci.keystore --ks-pass "pass:$PASS" --key-pass "pass:$PASS" --out "$GITHUB_WORKSPACE/YuRong-release.apk" /tmp/aligned.apk
+          "$BT/apksigner" verify --print-certs "$GITHUB_WORKSPACE/YuRong-release.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: YuRong-release-apk
+          path: YuRong-release.apk
+          if-no-files-found: error
